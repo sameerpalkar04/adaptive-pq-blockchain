@@ -1,22 +1,24 @@
 import time
 
-from adaptive_middleware.policy_engine import PolicyEngine
+from adaptive_middleware.ml_threat_predictor import MLThreatPredictor
+from adaptive_middleware.decision_engine import DecisionEngine
 from adaptive_middleware.hybrid import HybridSignature
 
 from pq_crypto_engine.signatures.dilithium import DilithiumScheme
 from pq_crypto_engine.signatures.falcon import FalconScheme
+from pq_crypto_engine.signatures.ov import OVScheme
 
 
 class AdaptiveMiddleware:
 
     def __init__(self):
 
-        self.policy_engine = PolicyEngine()
+        self.threat_predictor = MLThreatPredictor()
+        self.decision_engine = DecisionEngine()
 
-        # Cached scheme instances (important)
+        # cached schemes
         self.fast_scheme = FalconScheme()
-
-        self.balanced_scheme = DilithiumScheme("2")
+        self.storage_scheme = OVScheme()
         self.strong_scheme = DilithiumScheme("5")
 
         self.hybrid_scheme = HybridSignature(
@@ -24,46 +26,58 @@ class AdaptiveMiddleware:
             self.strong_scheme
         )
 
-    def select_scheme(self, decision):
+    def select_scheme(self, lane):
 
-        if decision["scheme"] == "FALCON":
+        if lane == "FALCON":
             return self.fast_scheme
 
-        if decision["scheme"] == "DILITHIUM":
+        if lane == "OV":
+            return self.storage_scheme
 
-            if decision["level"] == "2":
-                return self.balanced_scheme
+        if lane == "DILITHIUM":
+            return self.strong_scheme
 
-            if decision["level"] == "5":
-                return self.strong_scheme
-
-        if decision["scheme"] == "HYBRID":
+        if lane == "HYBRID":
             return self.hybrid_scheme
 
-        raise Exception("Invalid crypto decision")
+        raise Exception("Invalid lane selected")
 
-    def process_transaction(self, tx_metadata, threat_level, network_state):
+    def process_transaction(self, tx_metadata, network_state):
 
-        decision = self.policy_engine.choose_scheme(
-            tx_metadata,
-            threat_level,
-            network_state
+        tx_value = tx_metadata["value"]
+        urgency = tx_metadata["urgency"]
+        congestion = int(network_state["congestion"])
+
+        # use last known latency or default
+        verify_latency = network_state.get("verify_latency", 0.005)
+
+        # ⭐ ML threat prediction
+        threat = self.threat_predictor.predict(
+            tx_value,
+            congestion,
+            verify_latency
         )
 
-        scheme = self.select_scheme(decision)
+        # ⭐ decision engine lane selection
+        lane = self.decision_engine.choose_lane(
+            tx_value,
+            urgency,
+            threat
+        )
+
+        scheme = self.select_scheme(lane)
 
         payload = tx_metadata["payload"]
 
-        # ⭐ Measure signing latency
         start_sign = time.time()
         signature = scheme.sign(payload)
-        end_sign = time.time()
-
-        sign_latency = end_sign - start_sign
+        sign_latency = time.time() - start_sign
 
         return {
             "signature": signature,
             "scheme_used": scheme.name(),
-            "public_key": scheme.get_public_key(),
-            "sign_latency": sign_latency
+            "lane": lane,
+            "predicted_threat": threat,
+            "sign_latency": sign_latency,
+            "public_key": scheme.get_public_key()
         }

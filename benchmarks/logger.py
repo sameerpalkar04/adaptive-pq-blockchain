@@ -17,19 +17,21 @@ class MetricsLogger:
         self.writer.writerow([
             "tx_id",
             "scheme",
-            "threat",
+            "lane",
+            "predicted_threat",
             "congestion",
             "sign_latency",
             "verify_latency",
             "timestamp"
         ])
 
-    def log(self, tx_id, scheme, threat, congestion,
-            sign_latency, verify_latency):
+    def log(self, tx_id, scheme, lane, threat,
+        congestion, sign_latency, verify_latency):
 
         self.writer.writerow([
             tx_id,
             scheme,
+            lane,
             threat,
             congestion,
             sign_latency,

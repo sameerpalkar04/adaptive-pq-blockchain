@@ -20,7 +20,8 @@ class BlockchainRuntime:
     def generate_transaction(self):
 
         return {
-            "value": random.randint(1, 2000),
+            "value": random.randint(100, 2000),
+            "urgency": random.choice(["LOW", "HIGH"]),
             "payload": f"tx_{random.randint(1,10000)}".encode()
         }
 
@@ -34,53 +35,56 @@ class BlockchainRuntime:
 
         start = time.time()
 
+        last_verify_latency = 0.005
+
         for i in range(num_tx):
 
             tx = self.generate_transaction()
 
-            threat = self.threat_engine.get_current_threat()
-
             self.tx_pool_size = i
 
-            network_state = self.get_network_state()
+            network_state = {
+                "congestion": self.tx_pool_size > 40,
+                "verify_latency": last_verify_latency
+            }
 
-            # ---- SIGN ----
+            # ⭐ Middleware now does ML + decision making internally
             result = self.middleware.process_transaction(
                 tx,
-                threat,
                 network_state
             )
 
-            scheme = result["scheme_used"]
+            scheme_name = result["scheme_used"]
+            lane = result["lane"]
+            predicted_threat = result["predicted_threat"]
             signature = result["signature"]
             sign_latency = result["sign_latency"]
 
-            # ---- VERIFY ----
+            # ⭐ verification step
             start_verify = time.time()
 
-            decision = self.middleware.policy_engine.choose_scheme(
-                tx, threat, network_state
-            )
-
-            scheme_obj = self.middleware.select_scheme(decision)
-
+            scheme_obj = self.middleware.select_scheme(lane)
             scheme_obj.verify(tx["payload"], signature)
 
             verify_latency = time.time() - start_verify
+            last_verify_latency = verify_latency
 
-            # ---- LOG ----
+            # ⭐ log metrics
             self.logger.log(
                 i,
-                scheme,
-                threat,
+                scheme_name,
+                lane,
+                predicted_threat,
                 network_state["congestion"],
                 sign_latency,
                 verify_latency
             )
 
             print(
-                f"TX {i} | Threat={threat} | "
-                f"Scheme={scheme} | "
+                f"TX {i} | "
+                f"Threat={predicted_threat} | "
+                f"Lane={lane} | "
+                f"Scheme={scheme_name} | "
                 f"Sign={sign_latency:.5f}s | "
                 f"Verify={verify_latency:.5f}s"
             )
