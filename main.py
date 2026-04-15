@@ -22,4 +22,4 @@ if __name__ == "__main__":
     # Ensure logs folder exists for metrics.csv
     if not os.path.exists('logs'): os.makedirs('logs')
     
-    run_large_scale_simulation(10000)
+    run_large_scale_simulation(1000)
