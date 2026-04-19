@@ -1,25 +1,37 @@
 import os
-import time
-import pandas as pd
+import sys
 from blockchain_core.runtime import BlockchainRuntime
+from simulations.runner import ResearchSimulator
 
-def run_large_scale_simulation(iterations=1000):
-    print(f"🚀 Running Large-Scale Simulation: {iterations} Transactions")
+def run_research_suite(iterations=2000):
+    print(f"--- 🛡️ Starting Adaptive PQC Research Suite ---")
     
-    # Initialize your actual BlockchainRuntime from runtime.py
+    sim_suite = ResearchSimulator()
+    sim_suite.run_simulation_1()
+    
+    print(f"🚀 Initializing Blockchain Runtime: {iterations} Transactions...")
+    
+    if not os.path.exists('logs'): 
+        os.makedirs('logs')
+        
     runtime = BlockchainRuntime()
-    
-    # 1. Execute the Adaptive Simulation
-    # This calls your adaptive_middleware.controller to select schemes
     runtime.run(iterations) 
     
-    print("✅ Simulation complete. Running Quantum Evaluation Suite...")
+    print("📊 Generating Adaptive Switching Visualization...")
+    sim_suite.run_simulation_2(num_tx=iterations)
+
+    print("Generating Gas Cost and Energy Simulations")
+    sim_suite.run_simulation_3(num_tx=5000)
     
-    # 2. Automatically launch the evaluation scripts we will define below
-    os.system("python3 -m evaluation.quantum_analysis")
+    print(f"\n✅ All Research Tasks Complete.")
+    print(f"📁 Plots: evaluation/plots/sim1/ and evaluation/plots/sim2/")
 
 if __name__ == "__main__":
-    # Ensure logs folder exists for metrics.csv
-    if not os.path.exists('logs'): os.makedirs('logs')
-    
-    run_large_scale_simulation(1000)
+    try:
+        run_research_suite(iterations=2000)
+    except KeyboardInterrupt:
+        print("\n⚠️ Simulation interrupted.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        sys.exit(1)
