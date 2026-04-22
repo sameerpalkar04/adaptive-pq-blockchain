@@ -9,7 +9,7 @@ class AdaptiveMiddleware:
         self.schemes = schemes
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         
-        # Algorithm profiles including SPHINCS+
+        # Algorithm profiles
         self.algorithm_profiles = {
             "FALCON":    {"security": 0.65, "latency": 0.20, "size": 0.30},
             "OV":        {"security": 0.50, "latency": 0.10, "size": 0.45},
@@ -19,41 +19,33 @@ class AdaptiveMiddleware:
         }
 
     def _calculate_utility(self, lane, threat_prob, congestion, alpha, beta):
-        """Calculates utility cost where lower is better."""
         profile = self.algorithm_profiles[lane]
-        
-        # Security Risk: Heavily influenced by the ML Threat Score
         security_risk = (1.0 - profile["security"]) * threat_prob
-        
-        # Latency Cost: Scaled by current network congestion
         latency_cost = profile["latency"] * (1.0 + congestion)
-        
-        # Size Penalty: Fixed cost multiplier for gas impact
         size_penalty = profile["size"] * 0.15
 
         total_cost = (alpha * latency_cost) + (beta * security_risk) + size_penalty
         return total_cost
 
     def process_transaction(self, tx_metadata, network_state):
-        # Step 1: Extraction
+        # Extraction
         tx_value = float(tx_metadata.get("value", 0))
         urgency = tx_metadata.get("urgency", "NORMAL")
         congestion = float(network_state.get("congestion", 0.1))
         verify_latency = float(network_state.get("verify_latency", 0.005))
 
-        # Step 2: ML Threat Assessment
+        # ML Threat Assessment
         threat_prob, confidence = self.threat_predictor.predict_score(
             tx_value, 
             congestion, 
             verify_latency
         )
 
-        # Step 3: Dynamic Weight Assignment
+        # Dynamic Weight Assignment
         alpha = 0.8 if urgency == "HIGH" else 0.4
         beta = 0.9 if tx_value > 2000 else 0.5
 
-        # Step 4: Optimization with Priority Override
-        # Hard-coded safety thresholds: Bypass utility calculation for critical scenarios
+        # Optimization with Priority Override
         if threat_prob > 0.92 or tx_value > 10000:
             best_lane = "SPHINCS+"
             min_cost = self._calculate_utility(best_lane, threat_prob, congestion, alpha, beta)
@@ -71,7 +63,7 @@ class AdaptiveMiddleware:
                     min_cost = cost
                     best_lane = lane
 
-        # Step 5: Cryptographic Execution
+        # Cryptographic Execution
         scheme = self.schemes[best_lane]
         payload = tx_metadata.get("payloadData", b"")
         if isinstance(payload, str): 
@@ -81,12 +73,12 @@ class AdaptiveMiddleware:
         signature = scheme.sign(payload)
         execution_time = time.time() - start_time
 
-        # Step 6: Telemetry Package
+        # Telemetry Package
         return {
             "tx_id": tx_metadata.get("id"),
             "signature_hex": signature.hex() if isinstance(signature, bytes) else signature,
             "selected_lane": best_lane,
-            "scheme_name": best_lane, # Using key name for consistency
+            "scheme_name": best_lane, 
             "metrics": {
                 "threat_score": round(float(threat_prob), 4),
                 "optimization_cost": round(float(min_cost), 4),

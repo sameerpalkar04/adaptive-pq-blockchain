@@ -2,7 +2,6 @@ import csv
 import os
 import time
 
-
 class MetricsLogger:
 
     def __init__(self, filename="logs/metrics.csv"):

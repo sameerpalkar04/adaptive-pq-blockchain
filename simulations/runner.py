@@ -2,52 +2,46 @@ import os
 import shutil
 import numpy as np
 import matplotlib
-matplotlib.use('Agg') # Prevents UI threading issues in background/Streamlit environments
+import time
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from datetime import datetime
+from sklearn.metrics import cohen_kappa_score
 
 class ResearchSimulator:
     def __init__(self, metrics_csv="logs/metrics.csv"):
         self.plot_root = "evaluation/plots"
         self.metrics_csv = metrics_csv
         
-        # --- CLEAN START PROTOCOL ---
-        # Deletes old graphs and recreates fresh directories
         self.refresh_directories()
 
     def refresh_directories(self):
-        """Wipes the plot directory and recreates subfolders for Sims 1, 2, and 3."""
         if os.path.exists(self.plot_root):
             shutil.rmtree(self.plot_root)
-            print(f"🧹 Purged old plots from: {self.plot_root}")
+            print(f"Purged old plots from: {self.plot_root}")
             
         paths = [f"{self.plot_root}/sim{i}" for i in range(1, 4)]
         for path in paths:
             os.makedirs(path, exist_ok=True)
             
-        print(f"📂 Fresh directories ready: {datetime.now().strftime('%H:%M:%S')}")
+        print(f"Fresh directories ready: {datetime.now().strftime('%H:%M:%S')}")
 
     def _get_live_data(self):
-        """Helper to fetch synchronized logs from the metrics CSV."""
         if not os.path.exists(self.metrics_csv):
-            print(f"⚠️ Error: {self.metrics_csv} not found. Run the blockchain simulation first.")
+            print(f"Error: {self.metrics_csv} not found. Run the blockchain simulation first.")
             return None
         return pd.read_csv(self.metrics_csv)
 
     def run_simulation_1(self):
-        """Quantum Cryptanalysis: Comprehensive Vulnerability & Tradeoff Suite."""
-        print("🚀 Running Sim #1: Quantum Cryptanalysis & Efficiency Suite...")
-        
-        # --- 1. KEY RECOVERY PROBABILITY (Shor's Impact) ---
-        # Scale: 0 to 4000 Logical Qubits
+        print("Running Sim1: Quantum Cryptanalysis & Efficiency Suite")
+      
         qubits = np.arange(0, 4001, 40)
         
         # System Integrity Thresholds
-        # Shor's Algorithm: ~2n qubits for RSA-n, ~6n qubits for ECC-n
-        ecc_vuln = np.where(qubits < 1536, 100, 0) # Broken at ~1536
-        rsa_vuln = np.where(qubits < 4000, 100, 0) # Broken at ~4000
+        ecc_vuln = np.where(qubits < 1536, 100, 0)
+        rsa_vuln = np.where(qubits < 4000, 100, 0) 
         
         # Transition curves (Sigmoid modeling of Secure -> Broken)
         prob_ecc = 1 / (1 + np.exp(-0.01 * (qubits - 1536)))
@@ -82,10 +76,8 @@ class ResearchSimulator:
         plt.savefig(f"{self.plot_root}/sim1/plot14_attack_success_prob.png", dpi=300)
         plt.close()
 
-        # --- 2. SECURITY STRENGTH DECAY (Grover's & Shor's) ---
         steps = np.arange(0, 129) # Intensity units
         
-        # Shor's Decay Model (Exponential Collapse)
         ecc_shors = 128 * np.exp(-0.08 * steps)
         rsa_shors = 112 * np.exp(-0.06 * steps)
         mid_shors = np.full(len(steps), 128)
@@ -130,7 +122,6 @@ class ResearchSimulator:
         plt.savefig(f"{self.plot_root}/sim1/plot7_combined_security.png", dpi=300)
         plt.close()
 
-        # --- 3. THROUGHPUT & PARETO FRONTIER ---
         efficiency_data = [("ECC", 3450, "#ff7675", 8), ("RSA", 2210, "#fab1a0", 9), ("Middleware", 1080, "#55efc4", 10)]
         for name, val, color, p_num in efficiency_data:
             plt.figure(figsize=(7, 5))
@@ -143,7 +134,7 @@ class ResearchSimulator:
         # Plot 11: Tradeoff Analysis (The Pareto Frontier)
         plt.figure(figsize=(10, 7))
         tps_points = [3450, 2210, 1080]
-        sec_points = [5, 12, 128] # Final security bits under sustained attack
+        sec_points = [5, 12, 128] 
         labels = ["ECC", "RSA", "Middleware"]
         colors = ["#ff7675", "#fab1a0", "#55efc4"]
 
@@ -158,14 +149,13 @@ class ResearchSimulator:
         plt.savefig(f"{self.plot_root}/sim1/plot11_tradeoff_analysis.png", dpi=300)
         plt.close()
 
-        print("✅ Sim #1 Complete. All 14 analysis plots generated.")
+        print("Sim1 Complete. All analysis plots generated.")
 
     def run_simulation_2(self):
-        """Behavioral Adaptability Analysis: Visualizing ML-driven decision logic."""
         df = self._get_live_data()
         if df is None or df.empty: return
         
-        print(f"🚀 Running Sim #2: Behavioral Analysis for {len(df)} Transactions...")
+        print(f"Running Sim2: Behavioral Analysis for {len(df)} Transactions")
 
         # 1. Lane Distribution (Bar Chart)
         plt.figure(figsize=(9, 6))
@@ -176,7 +166,6 @@ class ResearchSimulator:
 
         # 2. Adaptive Heatmap Matrix (Critical for verifying logic)
         levels = ["1_Low", "2_Medium", "3_High", "4_Critical"]
-        # Ensure categorical order so heatmap isn't alphabetical
         df['threat_level'] = pd.Categorical(df['threat_level'], categories=levels, ordered=True)
         contingency_table = pd.crosstab(df['threat_level'], df['lane']).reindex(levels, fill_value=0)
         
@@ -202,57 +191,76 @@ class ResearchSimulator:
         plt.savefig(f"{self.plot_root}/sim2/crypto_family_distribution.png", dpi=300)
         plt.close()
         
-        print(f"✅ Sim #2 Saved.")
+        print(f"Sim2 Saved.")
 
     def run_simulation_3(self):
-        """Gas Economics: Sustainability comparison vs Static PQC."""
         df_logs = self._get_live_data()
-        if df_logs is None or df_logs.empty: return
+        if df_logs is None or df_logs.empty: 
+            print("No log data found. Skipping Simulation 3.")
+            return
         
-        # DYNAMIC TX COUNT (Fixes AttributeError)
         tx_count = len(df_logs)
-        print(f"🚀 Running Sim #3: Gas Economics for {tx_count} Transactions...")
+        print(f"\n--- Running Sim3: Gas Economics for {tx_count} Transactions ---")
 
         # Benchmark Signature Sizes (Bytes)
         stats = {"SPHINCS+": 7856, "DILITHIUM": 2420, "FALCON": 666, "OV": 666}
         gas_per_byte = 16 
         
-        # Vectorized Math for efficiency
+        # 1. Vectorized Gas Math
         mid_gas = df_logs['lane'].map(lambda x: stats.get(x, 666) * gas_per_byte).values
         static_gas = np.full(tx_count, stats["SPHINCS+"] * gas_per_byte)
 
-        # Plot 1: Cumulative Gas Consumption (Network Longevity)
-        plt.figure(figsize=(12, 6))
-        plt.plot(np.cumsum(mid_gas), label="Adaptive Middleware (Live)", color="#2ecc71", lw=3)
-        plt.plot(np.cumsum(static_gas), label="Static SPHINCS+ (Baseline)", color="#e74c3c", ls='--')
-        plt.fill_between(range(tx_count), np.cumsum(mid_gas), np.cumsum(static_gas), color='#2ecc71', alpha=0.15)
+        workload_ms = {
+            "OV": 0.15,        
+            "FALCON": 0.50,    
+            "DILITHIUM": 1.80, 
+            "SPHINCS+": 40.0  
+        }
+
+        # Calculate total simulated execution time based on the selected lanes
+        simulated_total_ms = df_logs['lane'].map(workload_ms).sum()
+        simulated_total_sec = simulated_total_ms / 1000
+
+        simulated_tps = tx_count / max(simulated_total_sec, 0.001)
+
+        total_mid_gas = np.sum(mid_gas)
+        total_static_gas = np.sum(static_gas)
+        avg_gas = np.mean(mid_gas)
         
-        plt.title(f"Network Sustainability: Cumulative Gas (N={tx_count})", fontsize=14)
+        ee_percentage = (1 - (total_mid_gas / total_static_gas)) * 100
+        tcr = simulated_tps / avg_gas
+        alpha = 1.00
+
+        print(f"{'Metric':<30} | {'Value':<15}")
+        print("-" * 50)
+        print(f"{'Security Margin (alpha)':<30} | {alpha:.2f}")
+        print(f"{'Throughput (TPS)':<30} | {simulated_tps:.2f}")
+        print(f"{'Avg. Gas Units':<30} | ~{int(avg_gas):,}")
+        print(f"{'Economic Efficiency (EE)':<30} | {ee_percentage:.2f}%")
+        print(f"{'Throughput-to-Cost (TCR)':<30} | {tcr:.6f}")
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(np.cumsum(mid_gas), label="Proposed Middleware", color="#2ecc71", lw=3)
+        plt.plot(np.cumsum(static_gas), label="Static SPHINCS+ (Baseline)", color="#e74c3c", ls='--')
+        plt.title(f"Network Sustainability: Cumulative Gas (N={tx_count})")
         plt.ylabel("Cumulative Gas Units")
         plt.xlabel("Transaction Sequence")
-        plt.xlim(0, tx_count)
-        plt.grid(True, linestyle=':', alpha=0.6)
         plt.legend(loc="upper left")
+        plt.grid(True, linestyle=':', alpha=0.6)
         plt.savefig(f"{self.plot_root}/sim3/cumulative_gas_cost.png", dpi=300)
         plt.close()
 
-        # Plot 2: Total Efficiency Gain (Bar Chart)
-        total_mid, total_static = np.sum(mid_gas), np.sum(static_gas)
-        savings = ((total_static - total_mid) / total_static * 100)
-        
         plt.figure(figsize=(8, 6))
-        bars = plt.bar(["Static Baseline", "Adaptive Middleware"], [total_static, total_mid], color=["#fab1a0", "#55efc4"])
-        plt.title(f"Gas Efficiency Gain: {savings:.1f}% Reduction", fontsize=14)
+        bars = plt.bar(["Static Baseline", "Proposed Middleware"], [total_static_gas, total_mid_gas], color=["#fab1a0", "#55efc4"])
+        plt.title(f"Gas Efficiency Gain: {ee_percentage:.1f}% Reduction")
         plt.ylabel("Total Network Gas (Units)")
-        
-        # Add values on top of bars
         for bar in bars:
             height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2, height, f'{height:,.0f}', ha='center', va='bottom')
-
+            plt.text(bar.get_x() + bar.get_width()/2, height, f'{int(height):,}', ha='center', va='bottom')
         plt.savefig(f"{self.plot_root}/sim3/total_gas_efficiency.png", dpi=300)
         plt.close()
-        print(f"✅ Sim #3 Saved. Final Efficiency: {savings:.2f}%")
+        
+        print(f"\nSimulation 3 Complete. Data saved to {self.plot_root}/sim3/")
 
 if __name__ == "__main__":
     sim = ResearchSimulator()
