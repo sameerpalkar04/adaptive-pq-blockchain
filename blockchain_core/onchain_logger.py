@@ -83,9 +83,17 @@ class OnChainLogger:
         except Exception as e:
             return None
 
-    def get_all_logs(self):
+    def get_all_logs(self, is_live=False):
+        if is_live:
+            if os.path.exists(self.csv_path):
+                import pandas as pd
+                df = pd.read_csv(self.csv_path)
+                return df.to_dict('records')
+            return []
+
         if not self.contract or not self.w3.is_connected():
             return []
+            
         try:
             event_logs = self.contract.events.TransactionLogged().get_logs(from_block=0)
             
@@ -93,14 +101,14 @@ class OnChainLogger:
             for entry in event_logs:
                 args = entry['args']
                 extracted_data.append({
-                    "txHash": args.get('txHash', 'N/A'),
-                    "scheme": args.get('scheme', 'N/A'),
-                    "threatScore": args.get('threat', '0'),
-                    "latency_ms": args.get('latency', 0),
-                    "verified": args.get('verified', False),
+                    "txHash": entry['transactionHash'].hex(),
+                    "scheme": args.get('scheme'),
+                    "threatScore": args.get('threat'),
+                    "latency_ms": args.get('latency'),
+                    "verified": args.get('verified'),
                     "block": entry['blockNumber']
                 })
             return extracted_data
         except Exception as e:
-            print(f"Error fetching on-chain logs: {e}")
+            print(f"Error fetching local logs: {e}")
             return []

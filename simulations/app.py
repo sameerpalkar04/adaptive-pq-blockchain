@@ -34,9 +34,10 @@ st.markdown(f"### Research Framework | Mode: **{sim_mode}**")
 
 if run_all:
     with st.status(f"Processing {total_tx} Transactions...", expanded=True) as status:
-        st.write(f"Initializing {sim_mode} Engine...")
-        
         rpc = "https://eth.llamarpc.com" if is_live else "http://127.0.0.1:8545"
+        
+        # Pass the RPC to the logger so it looks in the right place!
+        logger = OnChainLogger(provider_url=rpc) 
         runtime = BlockchainRuntime(rpc_url=rpc)
         
         st.write(f"Executing Adaptive Middleware (Live={is_live})...")
@@ -103,16 +104,20 @@ with tab3:
     
 with tab4:
     st.header("PQRegistry On-Chain Audit")
-    logger = OnChainLogger()
+    
+    current_rpc = "https://eth.llamarpc.com" if is_live else "http://127.0.0.1:8545"
+    logger = OnChainLogger(provider_url=current_rpc)
+
     if logger.w3.is_connected():
-        st.success(f"Connected to Node | Registry: `{logger.contract_address}`")
+        st.success(f"Connected to {sim_mode} | Registry: `{logger.contract_address}`")
     else:
-        st.error("Node Offline. Run 'npx hardhat node' for on-chain logging.")
+        st.error(f"Cannot connect to {sim_mode}. Ensure your node/RPC is active.")
 
     if st.button("Sync with Blockchain", use_container_width=True):
-        with st.spinner("Fetching proofs..."):
-            raw_logs = logger.get_all_logs()
+        with st.spinner(f"Fetching logs from {sim_mode}..."):
+            raw_logs = logger.get_all_logs(is_live=is_live)
+            
             if raw_logs:
                 st.dataframe(pd.DataFrame(raw_logs), use_container_width=True)
             else:
-                st.warning("No on-chain logs found.")
+                st.warning(f"No on-chain logs found on {sim_mode}.")
