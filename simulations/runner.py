@@ -172,51 +172,49 @@ class ResearchSimulator:
         plt.savefig(f"{self.plot_root}/sim1/plot11_tradeoff_analysis.png", dpi=300)
         plt.close()
 
-    def run_simulation_2(self, num_tx=2000):
+    def run_simulation_2(self, num_tx):
         print(f"🚀 Running Sim #2: Behavioral Adaptability ({num_tx} TX)...")
         results = []
         
-        # --- PHASE 1: Data Collection Loop ---
+        # --- PHASE 1: Data Collection ---
         for i in range(num_tx):
-            # Simulation inputs
             tx_metadata = {
                 "id": i, 
                 "value": np.random.randint(10, 15000), 
-                "urgency": "NORMAL", 
-                "payloadData": "simulation"
+                "urgency": np.random.choice(["NORMAL", "HIGH", "CRITICAL"]),
+                "payloadData": "simulation_payload_alpha" 
             }
-            network_state = {"congestion": np.random.uniform(0, 1)}
             
             # Execute Middleware Logic
-            output = self.controller.process_transaction(tx_metadata, network_state)
+            output = self.controller.process_transaction(tx_metadata, {"congestion": np.random.uniform(0, 1)})
             
-            # Extract metrics safely
             score = output["metrics"]["threat_score"]
             lane = output["selected_lane"]
             
-            # Categorize the threat level
+            # Categorize the threat level (Fixes potential missing key in plots)
             if score > 0.92: level = "4_Critical"
             elif score > 0.70: level = "3_High"
             elif score > 0.40: level = "2_Medium"
             else: level = "1_Low"
 
-            # Map Cryptographic Family
+            # Map Cryptographic Family (Fixes potential missing key in plots)
             if lane in ["FALCON", "DILITHIUM"]: family = "Lattice-based"
             elif lane == "SPHINCS+": family = "Hash-based"
             elif lane == "OV": family = "Multivariate"
             else: family = "Hybrid/Other"
 
+            # INTERNAL KEYS: Use these exactly as written for the plots below
             results.append({
                 'lane': lane, 
                 'threat_level': level, 
                 'threat': score, 
-                'family': family
+                'family': family,
+                'value': tx_metadata["value"],
+                'id': i
             })
         
         # --- PHASE 2: Data Processing ---
         df = pd.DataFrame(results)
-
-        # --- PHASE 3: Visualization Generation ---
         
         # 1. Lane Distribution
         plt.figure(figsize=(9, 6))
@@ -271,10 +269,10 @@ class ResearchSimulator:
 
         print("✅ Sim #2 Behavioral Analysis Complete. Plots saved to /sim2/")
     
-    def run_simulation_3(self, num_tx=5000):
-        print("🚀 Running Sim #3: Gas Economics & Energy Sustainability...")
+    def run_simulation_3(self, num_tx):
+        print(f"🚀 Running Sim #3: Gas Economics & Sustainability ({num_tx} TX)...")
         
-        # Performance/Gas stats for various PQC families
+        # Benchmarked stats for PQC families
         stats = {
             "HASH":    {"size": 7856, "energy": 45}, # SPHINCS+
             "LATTICE": {"size": 2420, "energy": 5},  # Dilithium/Falcon
@@ -284,28 +282,27 @@ class ResearchSimulator:
         gas_per_byte = 16
         results = []
 
+        # --- PHASE 1: Data Collection ---
         for i in range(num_tx):
-            # Simulated threat distribution using beta to mimic real-world patterns
+            # Beta distribution creates a realistic spread of "Heavy" vs "Light" security needs
             threat = np.random.beta(2, 5)
             
-            # Logic mimicking the AdaptiveMiddleware decision tree
             if threat > 0.92:
-                mid_gas = stats["HASH"]["size"] * gas_per_byte
-                mid_energy = stats["HASH"]["energy"]
+                mid = stats["HASH"]
             elif threat > 0.60:
-                mid_gas = stats["LATTICE"]["size"] * gas_per_byte
-                mid_energy = stats["LATTICE"]["energy"]
+                mid = stats["LATTICE"]
             else:
-                mid_gas = stats["EXTREME"]["size"] * gas_per_byte
-                mid_energy = stats["EXTREME"]["energy"]
+                mid = stats["EXTREME"]
 
+            # FIX: Ensure these keys match the plot calls at lines 305+
             results.append({
-                "mid_gas": mid_gas,
-                "mid_energy": mid_energy,
-                "static_hash_gas": stats["HASH"]["size"] * gas_per_byte,
-                "static_hash_energy": stats["HASH"]["energy"]
+                "mid_gas": mid["size"] * gas_per_byte,
+                "mid_energy": mid["energy"],
+                "static_hash_gas": stats["HASH"]["size"] * gas_per_byte, # Added 'hash' to key
+                "static_hash_energy": stats["HASH"]["energy"]           # Added 'hash' to key
             })
 
+        # --- PHASE 2: Data Processing ---
         df = pd.DataFrame(results)
 
         # 1. Cumulative Gas Cost

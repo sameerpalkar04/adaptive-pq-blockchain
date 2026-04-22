@@ -4,48 +4,45 @@ import hashlib
 
 # Middleware + PQC imports
 from adaptive_middleware.controller import AdaptiveMiddleware
-from adaptive_middleware.hybrid import HybridSignature
-
 from pq_crypto_engine.signatures.dilithium import DilithiumScheme
 from pq_crypto_engine.signatures.falcon import FalconScheme
 from pq_crypto_engine.signatures.ov import OVScheme
-from pq_crypto_engine.signatures.sphincs_plus import SPHINCSScheme # Added
+from pq_crypto_engine.signatures.sphincs_plus import SPHINCSScheme
 
 # Utilities
 from benchmarks.logger import MetricsLogger
-
-# Blockchain logger
-from blockchain_core.onchain_logger import log_onchain
+from blockchain_core.onchain_logger import OnChainLogger
 
 class BlockchainRuntime:
     def __init__(self):
-        # Initialize PQC Schemes
+        # 1. Initialize PQC Schemes
         falcon = FalconScheme()
         dilithium = DilithiumScheme("5")
         ov = OVScheme()
-        sphincs = SPHINCSScheme() # Added instantiation
-        hybrid = HybridSignature(falcon, dilithium)
+        sphincs = SPHINCSScheme()
 
-        # Added SPHINCS+ to the dictionary
         self.schemes_dict = {
             "FALCON": falcon,
             "DILITHIUM": dilithium,
             "OV": ov,
             "SPHINCS+": sphincs, 
-            "HYBRID": hybrid
         }
 
-        # Middleware
-        self.middleware = AdaptiveMiddleware(
-            schemes=self.schemes_dict
-        )
-
+        # 2. Initialize Core Components
+        # Pass the schemes to the middleware for decision logic
+        self.middleware = AdaptiveMiddleware(schemes=self.schemes_dict)
+        
+        # CSV logger for local performance data
         self.logger = MetricsLogger()
+        
+        # Persistent blockchain helper for on-chain audit trails
+        self.onchain_helper = OnChainLogger() 
+        
         self.chain = []
         self.tx_pool_size = 0
 
     def generate_transaction(self, tx_id):
-        # Increased value range to trigger SPHINCS+ (since we set the threshold to 10000)
+        """Generates mock transaction data with varying values to test adaptive logic."""
         return {
             "id": tx_id,
             "value": random.randint(100, 15000), 
@@ -57,72 +54,77 @@ class BlockchainRuntime:
         return hashlib.sha256(tx["payloadData"]).hexdigest()
 
     def run(self, num_tx=50):
+        """Main simulation execution loop."""
+        print(f"Starting Simulation for {num_tx} transactions...")
         start_runtime = time.time()
-        last_verify_latency = 0.005
+        last_verify_latency = 0.005 # Seed value for first TX
 
         for i in range(num_tx):
             tx = self.generate_transaction(i)
             self.tx_pool_size = i
 
+            # Mock network conditions
             network_state = {
                 "congestion": (1.0 if self.tx_pool_size > 40 else 0.0),
                 "verify_latency": last_verify_latency
             }
 
-            # Adaptive middleware processing
+            # 3. Adaptive Middleware Decision
+            # ML Model predicts threat and selects the best PQC algorithm
             result = self.middleware.process_transaction(tx, network_state)
 
             lane = result["selected_lane"]
             scheme_name = result["scheme_name"]
             
-            # Use .get() to handle potential key name differences in telemetry
+            # Extract telemetry and cryptographic material
             signature = result.get("signature") or result.get("signature_hex")
-            public_key = result.get("public_key") or result.get("public_key_hex")
-
             threat_score = result["metrics"]["threat_score"]
-            # Check if confidence exists in metrics (from our ML update)
             threat_conf = result["metrics"].get("threat_confidence", 0.0)
+            sign_latency = result["metrics"]["sign_latency_ms"] / 1000 # Convert to seconds
 
-            sign_latency = result["metrics"]["sign_latency_ms"] / 1000
-
-            # Verification logic
+            # 4. PQC Verification Logic
             scheme_obj = self.schemes_dict[lane]
             
-            # Ensure signature is in bytes for the OQS verify method
-            if isinstance(signature, str):
-                sig_bytes = bytes.fromhex(signature)
-            else:
-                sig_bytes = signature
+            # Handle signature format (hex string vs bytes)
+            sig_bytes = bytes.fromhex(signature) if isinstance(signature, str) else signature
 
             start_verify = time.time()
             is_valid = scheme_obj.verify(
                 tx["payloadData"],
                 sig_bytes,
-                scheme_obj.get_public_key() # Best to use object's key for internal consistency
+                scheme_obj.get_public_key()
             )
             verify_latency = time.time() - start_verify
             last_verify_latency = verify_latency
 
             tx_hash = self.generate_tx_hash(tx)
 
-            # CSV logging
+            # 5. Local CSV Logging (for Sim 2/Sim 3 plots)
             self.logger.log(
                 i, scheme_name, lane, threat_score,
                 network_state["congestion"], sign_latency, verify_latency
             )
 
-            # On-chain logging
+            # 6. Blockchain Logging (PQRegistry Audit)
+            chain_tx_hash = None
             try:
-                receipt = log_onchain(
-                    tx_hash, scheme_name, lane,
-                    int(verify_latency * 1000), is_valid
+                # Pass the sig_bytes we generated earlier in the loop
+                receipt = self.onchain_helper.log_onchain(
+                    tx_id=str(tx["id"]),    
+                    scheme=lane,            
+                    threat=round(threat_score, 2), # Passing as a float/str
+                    latency=verify_latency, 
+                    verified=is_valid,
+                    signature=sig_bytes # Pass actual PQC signature bytes
                 )
-                chain_tx_hash = receipt.transactionHash.hex() if receipt else None
+                
+                if receipt:
+                    chain_tx_hash = receipt.transactionHash.hex()
+                    print(f"Logged to Block: {receipt.blockNumber}")
             except Exception as e:
-                # print(f"On-chain log failed for TX {i}: {e}")
-                chain_tx_hash = None
+                print(f"On-chain log failed: {e}")
 
-            # Print stats including SPHINCS+ lanes
+            # 7. Console Telemetry
             print(
                 f"TX {i:03d} | "
                 f"Score={threat_score:.2f} (Conf:{threat_conf:.2f}) | "
@@ -138,5 +140,8 @@ class BlockchainRuntime:
                 "onchain_tx": chain_tx_hash
             })
 
+        # Finalize logs and cleanup
         self.logger.close()
-        print(f"\nSimulation Complete. Total Time: {time.time() - start_runtime:.2f}s")
+        total_time = time.time() - start_runtime
+        print(f"\nSimulation Complete. Total Time: {total_time:.2f}s")
+        print(f"Data saved to benchmarks/ and PQRegistry contract.")

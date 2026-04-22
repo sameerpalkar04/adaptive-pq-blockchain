@@ -18,7 +18,13 @@ contract PQRegistry {
     mapping(string => bytes) public registeredPublicKeys;
 
     event SecurityAlert(string reason, string schemeUsed);
-    event TransactionLogged(string txHash, bool verified);
+    event TransactionLogged(
+        string txHash, 
+        string scheme, 
+        string threat, 
+        uint256 latency, 
+        bool verified
+    );
 
     /**
      * @dev Enhanced logTransaction that simulates verification logic.
@@ -32,8 +38,9 @@ contract PQRegistry {
         uint256 _latency,
         bytes memory _signature // Pass the actual signature here for the simulation
     ) public returns (bool) {
-        bool isVerified = false;
 
+        bool isVerified = false;
+    
         // SIMULATION LOGIC:
         // Case 1: Legacy ECC (Simulation 1 scenario)
         if (keccak256(abi.encodePacked(_scheme)) == keccak256(abi.encodePacked("ECDSA"))) {
@@ -64,7 +71,7 @@ contract PQRegistry {
             )
         );
 
-        emit TransactionLogged(_txHash, isVerified);
+        emit TransactionLogged(_txHash, _scheme, _threat, _latency, isVerified);
         return isVerified;
     }
 
